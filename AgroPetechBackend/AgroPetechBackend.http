@@ -1,0 +1,6 @@
+@AgroPetechBackend_HostAddress = http://localhost:5005
+
+GET {{AgroPetechBackend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
