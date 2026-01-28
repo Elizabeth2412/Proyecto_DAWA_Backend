@@ -80,3 +80,92 @@ CREATE TABLE Opcion (
     FOREIGN KEY (preguntaId) REFERENCES Pregunta(id) ON DELETE CASCADE
 );
 GO
+
+-- Tabla de foros
+CREATE TABLE PublicacionesForo (
+    Id BIGINT IDENTITY(1,1) NOT NULL,
+
+    ParentId BIGINT NULL,
+    RootId BIGINT NULL,
+
+    Titulo NVARCHAR(200) NULL,
+    Contenido NVARCHAR(MAX) NOT NULL,
+    UrlImagen VARCHAR(500) NULL,
+
+    UsuarioId INT NOT NULL,
+
+    FechaCreacion DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    FechaModificacion DATETIME2 NULL,
+    UsuarioModificacionId INT NULL,
+    FechaEliminacion DATETIME2 NULL,
+    UsuarioEliminacionId INT NULL,
+    Estado BIT NOT NULL DEFAULT 1,
+
+    CONSTRAINT PK_PublicacionesForo 
+        PRIMARY KEY CLUSTERED (Id)
+);
+GO
+
+ALTER TABLE PublicacionesForo
+ADD CONSTRAINT FK_Publicaciones_Parent
+FOREIGN KEY (ParentId) REFERENCES PublicacionesForo(Id);
+GO
+
+ALTER TABLE PublicacionesForo
+ADD CONSTRAINT FK_Publicaciones_Usuario
+FOREIGN KEY (UsuarioId) REFERENCES Usuarios(Id);
+GO
+
+ALTER TABLE PublicacionesForo
+ADD CONSTRAINT FK_Publicaciones_UsuarioModificacion
+FOREIGN KEY (UsuarioModificacionId) REFERENCES Usuarios(Id);
+GO
+
+ALTER TABLE PublicacionesForo
+ADD CONSTRAINT FK_Publicaciones_UsuarioEliminacion
+FOREIGN KEY (UsuarioEliminacionId) REFERENCES Usuarios(Id);
+GO
+
+-- Crear indices para optimizar consultas
+CREATE NONCLUSTERED INDEX IX_Publicaciones_RootId
+ON PublicacionesForo(RootId)
+INCLUDE (Estado, FechaCreacion)
+WHERE Estado = 1;
+GO
+
+CREATE NONCLUSTERED INDEX IX_Publicaciones_ParentId
+ON PublicacionesForo(ParentId)
+INCLUDE (Estado, FechaCreacion)
+WHERE Estado = 1;
+GO
+
+CREATE NONCLUSTERED INDEX IX_Publicaciones_UsuarioId
+ON PublicacionesForo(UsuarioId, Estado, FechaCreacion DESC);
+GO
+
+CREATE NONCLUSTERED INDEX IX_Publicaciones_Fecha
+ON PublicacionesForo(FechaCreacion DESC)
+INCLUDE (Titulo, UsuarioId, ParentId, RootId)
+WHERE Estado = 1 AND ParentId IS NULL;
+GO
+-- Crear indice de texto completo para busquedas en Titulo y Contenido
+IF NOT EXISTS (
+    SELECT 1 
+    FROM sys.fulltext_catalogs 
+    WHERE name = 'FTC_Publicaciones'
+)
+BEGIN
+    CREATE FULLTEXT CATALOG FTC_Publicaciones
+    WITH ACCENT_SENSITIVITY = OFF;
+END
+GO
+
+CREATE FULLTEXT INDEX ON PublicacionesForo
+(
+    Titulo LANGUAGE 'Spanish',
+    Contenido LANGUAGE 'Spanish'
+)
+KEY INDEX PK_PublicacionesForo
+ON FTC_Publicaciones
+WITH CHANGE_TRACKING AUTO;
+GO
