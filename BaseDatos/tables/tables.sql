@@ -53,33 +53,79 @@ GO
 -- Tabla de Evaluaciones
 CREATE TABLE Evaluacion (
     id INT IDENTITY(1,1) PRIMARY KEY,
+    cursoId INT NULL,
     titulo VARCHAR(200) NOT NULL,
     modulo VARCHAR(100),
     totalPreguntas INT DEFAULT 0,
     duracion VARCHAR(50),
-    fechaCreacion DATETIME DEFAULT GETDATE(),
-    estado VARCHAR(20) CHECK (estado IN ('Activa', 'Inactiva'))
+    estado VARCHAR(20) CHECK (estado IN ('Activa', 'Inactiva')) DEFAULT 'Activa',
+
+    fechaCreacion DATETIME NULL DEFAULT GETDATE(),
+    usuarioCreacionId INT NULL,
+
+    fechaModificacion DATETIME NULL,
+    usuarioModificacionId INT NULL,
+
+    fechaEliminacion DATETIME NULL,
+    usuarioEliminacionId INT NULL,
+
+    CONSTRAINT FK_Evaluacion_Curso FOREIGN KEY (cursoId) REFERENCES Curso(id),
+    CONSTRAINT FK_Evaluacion_UsuarioCreacion FOREIGN KEY (usuarioCreacionId) REFERENCES Usuario(id),
+    CONSTRAINT FK_Evaluacion_UsuarioModificacion FOREIGN KEY (usuarioModificacionId) REFERENCES Usuario(id),
+    CONSTRAINT FK_Evaluacion_UsuarioEliminacion FOREIGN KEY (usuarioEliminacionId) REFERENCES Usuario(id)
 );
 GO
 
 -- Tabla de Preguntas
 CREATE TABLE Pregunta (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    evaluacionId INT,
+    evaluacionId INT NULL,
     texto VARCHAR(500) NOT NULL,
-    FOREIGN KEY (evaluacionId) REFERENCES Evaluacion(id) ON DELETE CASCADE
+    estado VARCHAR(20) CHECK (estado IN ('Activa', 'Inactiva')) DEFAULT 'Activa',
+
+    usuarioCreacionId INT NOT NULL,
+    fechaCreacion DATETIME DEFAULT GETDATE(),
+
+    usuarioModificacionId INT NULL,
+    fechaModificacion DATETIME NULL,
+
+    usuarioEliminacionId INT NULL,
+    fechaEliminacion DATETIME NULL,
+
+    CONSTRAINT FK_Pregunta_Evaluacion FOREIGN KEY (evaluacionId) REFERENCES Evaluacion(id),
+    CONSTRAINT FK_Pregunta_UsuarioCreacion FOREIGN KEY (usuarioCreacionId) REFERENCES Usuario(id),
+    CONSTRAINT FK_Pregunta_UsuarioModificacion FOREIGN KEY (usuarioModificacionId) REFERENCES Usuario(id),
+    CONSTRAINT FK_Pregunta_UsuarioEliminacion FOREIGN KEY (usuarioEliminacionId) REFERENCES Usuario(id)
 );
 GO
+
 
 -- Tabla de Opciones de Preguntas
 CREATE TABLE Opcion (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    preguntaId INT,
+    preguntaId INT NULL,
     texto VARCHAR(200) NOT NULL,
-    esCorrecta BIT DEFAULT 0,
-    FOREIGN KEY (preguntaId) REFERENCES Pregunta(id) ON DELETE CASCADE
+    esCorrecta BIT DEFAULT 0 NULL,
+    estado VARCHAR(20) CHECK (estado IN ('Activa', 'Inactiva')) DEFAULT 'Activa',
+
+    usuarioCreacionId INT NULL,
+    fechaCreacion DATETIME NULL DEFAULT GETDATE() ,
+
+    usuarioModificacionId INT NULL,
+    fechaModificacion DATETIME NULL,
+
+    usuarioEliminacionId INT NULL,
+    fechaEliminacion DATETIME NULL,
+
+    CONSTRAINT FK_Opcion_Pregunta FOREIGN KEY (preguntaId) REFERENCES Pregunta(id),
+    CONSTRAINT FK_Opcion_UsuarioCreacion FOREIGN KEY (usuarioCreacionId) REFERENCES Usuario(id),
+
+    CONSTRAINT FK_Opcion_UsuarioModificacion FOREIGN KEY (usuarioModificacionId) REFERENCES Usuario(id),
+
+    CONSTRAINT FK_Opcion_UsuarioEliminacion FOREIGN KEY (usuarioEliminacionId) REFERENCES Usuario(id)
 );
 GO
+
 
 -- Tabla de foros
 CREATE TABLE PublicacionesForo (
@@ -113,17 +159,17 @@ GO
 
 ALTER TABLE PublicacionesForo
 ADD CONSTRAINT FK_Publicaciones_Usuario
-FOREIGN KEY (UsuarioId) REFERENCES Usuarios(Id);
+FOREIGN KEY (UsuarioId) REFERENCES Usuario(Id);
 GO
 
 ALTER TABLE PublicacionesForo
 ADD CONSTRAINT FK_Publicaciones_UsuarioModificacion
-FOREIGN KEY (UsuarioModificacionId) REFERENCES Usuarios(Id);
+FOREIGN KEY (UsuarioModificacionId) REFERENCES Usuario(Id);
 GO
 
 ALTER TABLE PublicacionesForo
 ADD CONSTRAINT FK_Publicaciones_UsuarioEliminacion
-FOREIGN KEY (UsuarioEliminacionId) REFERENCES Usuarios(Id);
+FOREIGN KEY (UsuarioEliminacionId) REFERENCES Usuario(Id);
 GO
 
 -- Crear indices para optimizar consultas
