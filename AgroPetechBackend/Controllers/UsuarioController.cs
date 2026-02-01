@@ -1,6 +1,11 @@
 using AgroPetechClases;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using System.Data;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using System.Xml.Linq;
 
 namespace AgroPetechBackend.Controllers
@@ -17,6 +22,7 @@ namespace AgroPetechBackend.Controllers
             _config = config;
             _logger = logger;
         }
+
         /* Lo que hace este método en el swagger:
          * 1: Listar todos los usuarios
         {
@@ -107,6 +113,7 @@ namespace AgroPetechBackend.Controllers
                 });
             }
         }
+
         /* Lo que hace este método en el swagger:
          * 1: Actualizar usuario
         {
@@ -175,13 +182,13 @@ namespace AgroPetechBackend.Controllers
                 });
             }
         }
+
         /* Lo que hace este método en el swagger:
-         * 1: Validación de credenciales
+         * 1: Validación de credenciales CON TOKEN
         {
           "email": "leslie@gmail.com",
           "password": "instructor123"
         }
-
          */
         [HttpPost("ValidarLogin")]
         [ProducesResponseType(typeof(Resultado), 200)]
@@ -191,8 +198,59 @@ namespace AgroPetechBackend.Controllers
         {
             try
             {
+                var cadenaConexion = _config.GetConnectionString("AgroPetechConnection");
+                if (string.IsNullOrEmpty(cadenaConexion))
+                    return BadRequest(new Resultado { Respuesta = "Error", Leyenda = "Cadena de conexión no configurada" });
+
+                // Establecer la transacción para validación
                 usuario.Transaccion = "VALIDAR_USUARIO";
-                return await GetUsuario(usuario);
+
+                XDocument xmlParam = Shared.DBXmlMethods.GetXml(usuario);
+                DataSet dsResultado = await Shared.DBXmlMethods.EjecutaBase(
+                    "GetUsuario",
+                    cadenaConexion,
+                    usuario.Transaccion,
+                    xmlParam?.ToString() ?? "");
+
+                var resultado = new Resultado();
+
+                if (dsResultado.Tables.Count > 1 && dsResultado.Tables[1].Rows.Count > 0)
+                {
+                    // Usuario válido, crear token
+                    DataRow userRow = dsResultado.Tables[1].Rows[0];
+
+                    var usuarioAutenticado = new Usuario
+                    {
+                        Id = Convert.ToInt32(userRow["id"]),
+                        Email = userRow["email"]?.ToString(),
+                        Tipo = userRow["tipo"]?.ToString(),
+                        Nombre = userRow["nombre"]?.ToString(),
+                        Apellido = userRow["apellido"]?.ToString()
+                    };
+
+                    if (userRow["edad"] != DBNull.Value && userRow["edad"] != null)
+                    {
+                        usuarioAutenticado.Edad = Convert.ToInt32(userRow["edad"]);
+                    }
+
+                    // Crear token JWT
+                    string token = CrearToken(usuarioAutenticado);
+
+                    resultado.Respuesta = "Ok";
+                    resultado.Leyenda = "Autenticación exitosa";
+                    resultado.Data = new
+                    {
+                        Token = token,
+                        Usuario = usuarioAutenticado
+                    };
+                }
+                else
+                {
+                    resultado.Respuesta = "Error";
+                    resultado.Leyenda = "Credenciales inválidas";
+                }
+
+                return Ok(resultado);
             }
             catch (Exception ex)
             {
@@ -204,6 +262,7 @@ namespace AgroPetechBackend.Controllers
                 });
             }
         }
+
         /* Lo que hace este método en el swagger:
          * 1: Registrar un usuario
         {
@@ -236,5 +295,116 @@ namespace AgroPetechBackend.Controllers
                 });
             }
         }
+
+        /* Método para validar y decodificar token JWT
+         * Se puede usar para verificar tokens en otros endpoints
+         */
+        [HttpPost("ValidarToken")]
+        [ProducesResponseType(typeof(Resultado), 200)]
+        [ProducesResponseType(typeof(Resultado), 400)]
+        [ProducesResponseType(typeof(Resultado), 500)]
+        public ActionResult<Resultado> ValidarToken([FromBody] TokenRequest tokenRequest)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(tokenRequest.Token))
+                {
+                    return BadRequest(new Resultado { Respuesta = "Error", Leyenda = "Token no proporcionado" });
+                }
+
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = System.Text.Encoding.UTF8.GetBytes(_config.GetSection("Jwt:Key").Value);
+
+                try
+                {
+                    tokenHandler.ValidateToken(tokenRequest.Token, new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ClockSkew = TimeSpan.Zero
+                    }, out SecurityToken validatedToken);
+
+                    var jwtToken = (JwtSecurityToken)validatedToken;
+                    var userId = jwtToken.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
+                    var email = jwtToken.Claims.First(x => x.Type == ClaimTypes.Name).Value;
+                    var tipo = jwtToken.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Role)?.Value;
+
+                    return Ok(new Resultado
+                    {
+                        Respuesta = "Ok",
+                        Leyenda = "Token válido",
+                        Data = new
+                        {
+                            UserId = userId,
+                            Email = email,
+                            Tipo = tipo,
+                            Expira = jwtToken.ValidTo
+                        }
+                    });
+                }
+                catch (SecurityTokenExpiredException)
+                {
+                    return Ok(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "Token expirado"
+                    });
+                }
+                catch (SecurityTokenException)
+                {
+                    return Ok(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "Token inválido"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ValidarToken");
+                return StatusCode(500, new Resultado
+                {
+                    Respuesta = "Error",
+                    Leyenda = $"Error interno: {ex.Message}"
+                });
+            }
+        }
+
+        /* Método para crear token JWT*/
+        private string CrearToken(Usuario usuario)
+        {
+            var claims = new List<Claim>
+    {
+        new Claim(ClaimTypes.NameIdentifier, usuario.Id?.ToString() ?? "0"),
+        new Claim(ClaimTypes.Name, usuario.Email ?? ""),
+        new Claim(ClaimTypes.Role, usuario.Tipo ?? "estudiante"),
+        new Claim("NombreCompleto", $"{usuario.Nombre} {usuario.Apellido}".Trim())
+    };
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_config["Jwt:Key"] ??
+                _config["AppSettings:Token"] ??
+                "fallback_key_development"));
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.Now.AddDays(7),
+                SigningCredentials = creds
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return tokenHandler.WriteToken(token);
+        }
+    }
+    public class TokenRequest
+    {
+        public string Token { get; set; }
     }
 }
