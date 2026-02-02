@@ -13,7 +13,6 @@ namespace AgroPetechClases
         public string? Texto { get; set; }
         public string? Estado { get; set; }
         public int? UsuarioId { get; set; }
-        //public ICollection<Opcion> Opciones { get; set; } = new List<Opcion>();
         public string? Transaccion { get; set; }
     }
 }

@@ -64,6 +64,7 @@ namespace AgroPetechBackend.Controllers
                                 Modulo = row["modulo"]?.ToString(),
                                 TotalPreguntas = Convert.ToInt32(row["totalPreguntas"]),
                                 Duracion = row["duracion"]?.ToString(),
+                                FechaCreacion = Convert.ToDateTime(row["FechaCreacion"]),
                                 Estado = row["estado"]?.ToString(),
                             };
 
@@ -106,16 +107,6 @@ namespace AgroPetechBackend.Controllers
         {
             try
             {
-                // Validación de entrada
-                if (string.IsNullOrWhiteSpace(evaluacion.Titulo))
-                {
-                    return BadRequest(new Resultado
-                    {
-                        Respuesta = "Error",
-                        Leyenda = "El nombre de la evaluación es obligatorio"
-                    });
-                }
-
                 var cadenaConexion = _config.GetConnectionString("AgroPetechConnection");
 
                 if (string.IsNullOrEmpty(cadenaConexion))
@@ -160,6 +151,7 @@ namespace AgroPetechBackend.Controllers
                             Modulo = row["modulo"]?.ToString(),
                             TotalPreguntas = Convert.ToInt32(row["totalPreguntas"]),
                             Duracion = row["duracion"]?.ToString(),
+                            FechaCreacion = Convert.ToDateTime(row["FechaCreacion"]),
                             Estado = row["estado"]?.ToString()
                         });
                     }
