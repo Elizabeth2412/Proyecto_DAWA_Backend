@@ -8,6 +8,8 @@ SELECT * FROM Evaluacion
    -- <<GET EVALUACION>> --
 ---------------------------------
 
+EXEC GetEvaluacion @iTransaccion = 'BUSCAR_EVALUACION'
+
 GO
 CREATE OR ALTER PROCEDURE GetEvaluacion
     @iTransaccion VARCHAR(50),
@@ -26,6 +28,7 @@ BEGIN
         modulo VARCHAR(100),
         totalPreguntas INT,
         duracion VARCHAR(50),
+        fechaCreacion DATETIME,
         estado VARCHAR(20)
     );
 
@@ -43,6 +46,7 @@ BEGIN
                     modulo, 
                     totalPreguntas, 
                     duracion, 
+                    fechaCreacion,
                     estado
                 FROM Evaluacion;
 
@@ -90,6 +94,7 @@ BEGIN
                     modulo, 
                     totalPreguntas, 
                     duracion, 
+                    fechaCreacion,
                     estado
                 FROM Evaluacion
                 WHERE cursoId = @cursoId;
@@ -103,14 +108,10 @@ BEGIN
         ELSE IF (@iTransaccion = 'BUSCAR_EVALUACION')
         BEGIN
             DECLARE @titulo VARCHAR(200) = LTRIM(RTRIM(ISNULL(@iXML.value('(/Evaluacion/Titulo)[1]', 'VARCHAR(200)'), '')));
+            DECLARE @estado VARCHAR(200) = LTRIM(RTRIM(ISNULL(@iXML.value('(/Evaluacion/Estado)[1]', 'VARCHAR(200)'), '')));
 
-            IF @titulo = ''
-            BEGIN
-                SET @Respuesta = 'Error';
-                SET @Leyenda = 'El nombre de la evaluación es obligatorio';
-            END
             -- Validar existencia
-            ELSE IF NOT EXISTS (SELECT 1 FROM Evaluacion WHERE titulo LIKE '%' + @titulo + '%')
+            IF NOT EXISTS (SELECT 1 FROM Evaluacion WHERE titulo LIKE '%' + @titulo + '%' )
             BEGIN
                 SET @Respuesta = 'Error';
                 SET @Leyenda = 'No existe una evaluación con el nombre proporcionado';
@@ -125,14 +126,15 @@ BEGIN
                     modulo, 
                     totalPreguntas, 
                     duracion, 
+                    fechaCreacion,
                     estado
                 FROM Evaluacion
-                WHERE titulo LIKE '%' + @titulo + '%';
+                WHERE   (@titulo IS NULL OR @titulo = '' OR titulo LIKE '%' + @titulo + '%')
+                        AND (@estado IS NULL OR @estado = '' OR estado = @estado)
 
-                SET @Leyenda = 'Búsqueda por nombre exitosa';
+                SET @Leyenda = 'Búsqueda por nombre/estado exitosa';
             END
         END
-
 
         ELSE
         BEGIN
@@ -153,6 +155,7 @@ BEGIN
     END CATCH
 END;
 GO
+
 
 
 ---------------------------------
