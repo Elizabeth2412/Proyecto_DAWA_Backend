@@ -6,7 +6,7 @@
 
 SET NOCOUNT ON;
 GO
-:setvar DatabaseName "Agropetech"
+:setvar DatabaseName "AgroPetech"
 
 -- =====================================================
 -- CONFIGURACIÓN DE RUTA BASE

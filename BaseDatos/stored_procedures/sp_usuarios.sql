@@ -1,3 +1,5 @@
+USE AgroPetech;
+GO
 -- Procedimientos  para Usuario
 CREATE OR ALTER PROCEDURE GetUsuario
     @iTransaccion VARCHAR(50),
@@ -203,3 +205,11 @@ BEGIN
     END CATCH
 END;
 GO
+CREATE NONCLUSTERED INDEX IX_Usuario_Email_Password
+ON Usuario (email, password)
+INCLUDE (id, tipo, nombre, apellido, edad);
+GO
+CREATE UNIQUE NONCLUSTERED INDEX IX_Usuario_Email
+ON Usuario (email);
+GO
+SELECT * FROM Usuario;

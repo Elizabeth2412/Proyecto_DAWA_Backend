@@ -73,7 +73,13 @@ builder.Services.AddSwaggerGen(c =>
 
     c.EnableAnnotations();
 });
-
+builder.Services.AddHttpClient("Backend", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ApiUrl"]);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+});
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -94,7 +100,7 @@ app.MapControllers();
 app.MapGet("/", () => Results.Json(new
 {
     status = "OK",
-    message = "Backend AgroPetech está corriendo correctamente",
+    message = "Backend AgroPetech estï¿½ corriendo correctamente",
     timestamp = DateTime.UtcNow
 }));
 
