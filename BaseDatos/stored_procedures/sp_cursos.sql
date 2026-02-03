@@ -8,24 +8,19 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @Respuesta VARCHAR(10) = 'Ok';
-    DECLARE @Leyenda VARCHAR(200) = 'Ejecutado correctamente';
-    DECLARE @ResultTable TABLE (
-        id INT,
-        titulo VARCHAR(200),
-        descripcion VARCHAR(1000),
-        nivel VARCHAR(50),
-        duracion INT,
-        instructor VARCHAR(100),
-        fechaCreacion DATETIME,
-        fechaActualizacion DATETIME,
-        transaccion VARCHAR(50)
-    );
+    DECLARE @Leyenda   VARCHAR(200) = 'Ejecutado correctamente';
 
     BEGIN TRY
+
+        -- LISTAR CURSOS
         IF (@iTransaccion = 'LISTAR_CURSOS')
         BEGIN
-            -- Insertar todos los cursos
-            INSERT INTO @ResultTable
+            SET @Leyenda = 'Consulta exitosa';
+
+            -- 1️⃣ RESPUESTA (SIEMPRE PRIMERO)
+            SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
+
+            -- 2️⃣ DATOS
             SELECT 
                 id,
                 titulo,
@@ -35,36 +30,64 @@ BEGIN
                 instructor,
                 fechaCreacion,
                 fechaActualizacion,
-                @iTransaccion
+                @iTransaccion AS transaccion
             FROM Curso
             ORDER BY fechaCreacion DESC;
-            
-            SET @Leyenda = 'Consulta exitosa. Cursos encontrados: ' + CAST(@@ROWCOUNT AS VARCHAR);
         END
+
+        -- LISTAR CURSOS CON ARCHIVOS
+        ELSE IF (@iTransaccion = 'LISTAR_CURSOS_CON_ARCHIVOS')
+        BEGIN
+            SET @Leyenda = 'Consulta con archivos';
+
+            -- 1️⃣ RESPUESTA
+            SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
+
+            -- 2️⃣ CURSOS
+            SELECT 
+                c.id,
+                c.titulo,
+                c.descripcion,
+                c.nivel,
+                c.duracion,
+                c.instructor,
+                c.fechaCreacion,
+                c.fechaActualizacion,
+                @iTransaccion AS transaccion
+            FROM Curso c
+            ORDER BY c.fechaCreacion DESC;
+
+            -- 3️⃣ ARCHIVOS
+            SELECT 
+                a.id AS archivoId,
+                a.nombre,
+                a.tipo,
+                a.tamano,
+                a.descripcion,
+                a.usuario,
+                a.estado,
+                a.fechaSubida,
+                ca.cursoId
+            FROM Archivo a
+            INNER JOIN CursoArchivo ca ON a.id = ca.archivoId
+            ORDER BY a.fechaSubida DESC;
+        END
+
         ELSE
         BEGIN
             SET @Respuesta = 'Error';
             SET @Leyenda = 'Transacción no válida: ' + @iTransaccion;
-        END
 
-        -- Devolver resultados en la estructura esperada
-        SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
-        
-        IF @Respuesta = 'Ok'
-            SELECT * FROM @ResultTable;
-        ELSE
-            SELECT TOP 0 * FROM @ResultTable;
+            SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
+        END
 
     END TRY
     BEGIN CATCH
-        SET @Respuesta = 'Error';
-        SET @Leyenda = 'Error en la consulta: ' + ERROR_MESSAGE();
-        
-        SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
-        SELECT TOP 0 * FROM @ResultTable;
+        SELECT 'Error' AS Respuesta, ERROR_MESSAGE() AS Leyenda;
     END CATCH
 END;
 GO
+
 
 CREATE OR ALTER PROCEDURE SetCurso
     @iTransaccion VARCHAR(50),
@@ -145,3 +168,4 @@ GO
     SELECT * FROM Archivo;
     
     SELECT * FROM CursoArchivo;
+    SELECT * FROM Usuario;

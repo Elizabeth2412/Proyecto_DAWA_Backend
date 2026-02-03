@@ -212,4 +212,3 @@ GO
 CREATE UNIQUE NONCLUSTERED INDEX IX_Usuario_Email
 ON Usuario (email);
 GO
-SELECT * FROM Usuario;

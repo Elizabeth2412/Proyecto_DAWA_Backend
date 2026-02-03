@@ -145,71 +145,16 @@ BEGIN
     END CATCH
 END;
 GO
-
--- PROCEDIMIENTO GetCurso PARA INCLUIR ARCHIVOS
-
-CREATE OR ALTER PROCEDURE GetCursoConArchivos
-    @iTransaccion VARCHAR(50),
-    @iXML XML = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    DECLARE @Respuesta VARCHAR(10) = 'Ok';
-    DECLARE @Leyenda VARCHAR(200) = 'Ejecutado correctamente';
-    DECLARE @ResultTable TABLE (
-        id INT,
-        titulo VARCHAR(200),
-        descripcion VARCHAR(1000),
-        nivel VARCHAR(50),
-        duracion INT,
-        instructor VARCHAR(100),
-        fechaCreacion DATETIME,
-        fechaActualizacion DATETIME,
-        transaccion VARCHAR(50)
-    );
-
-    BEGIN TRY
-        IF (@iTransaccion = 'LISTAR_CURSOS_CON_ARCHIVOS')
-        BEGIN
-            -- Insertar todos los cursos
-            INSERT INTO @ResultTable
-            SELECT 
-                c.id,
-                c.titulo,
-                c.descripcion,
-                c.nivel,
-                c.duracion,
-                c.instructor,
-                c.fechaCreacion,
-                c.fechaActualizacion,
-                @iTransaccion
-            FROM Curso c
-            ORDER BY c.fechaCreacion DESC;
-            
-            SET @Leyenda = 'Consulta exitosa. Cursos encontrados: ' + CAST(@@ROWCOUNT AS VARCHAR);
-        END
-        ELSE
-        BEGIN
-            SET @Respuesta = 'Error';
-            SET @Leyenda = 'Transacción no válida: ' + @iTransaccion;
-        END
-
-        -- Devolver resultados en la estructura esperada
-        SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
-        
-        IF @Respuesta = 'Ok'
-            SELECT * FROM @ResultTable;
-        ELSE
-            SELECT TOP 0 * FROM @ResultTable;
-
-    END TRY
-    BEGIN CATCH
-        SET @Respuesta = 'Error';
-        SET @Leyenda = 'Error en la consulta: ' + ERROR_MESSAGE();
-        
-        SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
-        SELECT TOP 0 * FROM @ResultTable;
-    END CATCH
-END;
+-- Ordenamiento por fechaSubida en GetArchivosPorCurso
+CREATE NONCLUSTERED INDEX IX_Archivo_FechaSubida
+ON Archivo (fechaSubida DESC)
+INCLUDE (nombre, tipo, tamano, descripcion, usuario, estado);
 GO
+-- JOIN y WHERE por cursoId (GetArchivosPorCurso)
+CREATE NONCLUSTERED INDEX IX_CursoArchivo_CursoId
+ON CursoArchivo (cursoId)
+INCLUDE (archivoId);
+GO
+-- Validación EXISTS y DELETE por cursoId + archivoId
+CREATE NONCLUSTERED INDEX IX_CursoArchivo_CursoId_ArchivoId
+ON CursoArchivo (cursoId, archivoId);
