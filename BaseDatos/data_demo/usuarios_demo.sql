@@ -1,5 +1,7 @@
+USE AgroPetech;
+GO
 /* ============================================
-   Proyecto: Agropetech
+   Proyecto: AgroPetech
    Script: usuarios_beta.sql
    Descripción: Inserta datos iniciales en la tabla Usuario
    ============================================ */

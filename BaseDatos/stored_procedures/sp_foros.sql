@@ -1,5 +1,6 @@
 /* Stored Procedures - Foros */
-
+USE AgroPetech;
+GO
 -- ===============================
 -- GetPublicacionForo
 -- ===============================
