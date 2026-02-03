@@ -7,7 +7,7 @@ namespace AgroPetechBackend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ForoController : ControllerBase
+    public class ForoController : Controller
     {
         private readonly IConfiguration _config;
         private readonly ILogger<ForoController> _logger;
@@ -69,8 +69,8 @@ namespace AgroPetechBackend.Controllers
                     // Tabla 0: Respuesta y Leyenda
                     if (dsResultado.Tables[0].Rows.Count > 0)
                     {
-                        resultado.Respuesta = dsResultado.Tables[0].Rows[0]["Respuesta"]?.ToString() ?? "Error";
-                        resultado.Leyenda = dsResultado.Tables[0].Rows[0]["Leyenda"]?.ToString() ?? "Sin mensaje";
+                        resultado.Respuesta = dsResultado.Tables[0].Rows[0]["respuesta"]?.ToString() ?? "Error";
+                        resultado.Leyenda = dsResultado.Tables[0].Rows[0]["leyenda"]?.ToString() ?? "Sin mensaje";
                     }
 
                     // Tabla 1: Datos de publicaciones
@@ -83,33 +83,37 @@ namespace AgroPetechBackend.Controllers
                             {
                                 var pub = new PublicacionForo
                                 {
-                                    Id = Convert.ToInt64(row["Id"]),
-                                    Titulo = row["Titulo"]?.ToString(),
-                                    Contenido = row["Contenido"]?.ToString(),
-                                    UrlImagen = row["UrlImagen"]?.ToString(),
-                                    UsuarioId = Convert.ToInt32(row["UsuarioId"]),
-                                    NombreAutor = row["NombreAutor"]?.ToString(),
-                                    FechaCreacion = Convert.ToDateTime(row["FechaCreacion"])
+                                    Id = Convert.ToInt64(row["id"]),
+                                    Titulo = row["titulo"]?.ToString(),
+                                    Contenido = row["contenido"]?.ToString(),
+                                    UrlImagen = row["urlImagen"]?.ToString(),
+                                    UsuarioId = Convert.ToInt32(row["usuarioId"]),
+                                    NombreAutor = row["nombreAutor"]?.ToString(),
+                                    FechaCreacion = Convert.ToDateTime(row["fechaCreacion"])
                                 };
 
-                                if (row.Table.Columns.Contains("ParentId") && row["ParentId"] != DBNull.Value)
+                                if (row.Table.Columns.Contains("parentId") && row["parentId"] != DBNull.Value)
                                 {
-                                    pub.ParentId = Convert.ToInt64(row["ParentId"]);
+                                    pub.ParentId = Convert.ToInt64(row["parentId"]);
                                 }
 
-                                if (row.Table.Columns.Contains("RootId") && row["RootId"] != DBNull.Value)
+                                if (row.Table.Columns.Contains("rootId") && row["rootId"] != DBNull.Value)
                                 {
-                                    pub.RootId = Convert.ToInt64(row["RootId"]);
+                                    pub.RootId = Convert.ToInt64(row["rootId"]);
                                 }
 
-                                if (row.Table.Columns.Contains("FechaModificacion") && row["FechaModificacion"] != DBNull.Value)
+                                if (row.Table.Columns.Contains("fechaModificacion") && row["fechaModificacion"] != DBNull.Value)
                                 {
-                                    pub.FechaModificacion = Convert.ToDateTime(row["FechaModificacion"]);
+                                    pub.FechaModificacion = Convert.ToDateTime(row["fechaModificacion"]);
                                 }
 
-                                if (row.Table.Columns.Contains("NumeroRespuestas") && row["NumeroRespuestas"] != DBNull.Value)
+                                if (row.Table.Columns.Contains("numeroRespuestas") && row["numeroRespuestas"] != DBNull.Value)
                                 {
-                                    pub.NumeroRespuestas = Convert.ToInt32(row["NumeroRespuestas"]);
+                                    pub.NumeroRespuestas = Convert.ToInt32(row["numeroRespuestas"]);
+                                }
+                                if (row.Table.Columns.Contains("usuarioModificacionId") && row["usuarioModificacionId"] != DBNull.Value)
+                                {
+                                    pub.UsuarioModificacionId = Convert.ToInt32(row["usuarioModificacionId"]);
                                 }
 
                                 publicaciones.Add(pub);
@@ -180,26 +184,25 @@ namespace AgroPetechBackend.Controllers
         [ProducesResponseType(typeof(Resultado), 200)]
         [ProducesResponseType(typeof(Resultado), 400)]
         [ProducesResponseType(typeof(Resultado), 500)]
-        public async Task<ActionResult<Resultado>> SetPublicacionForo([FromBody] PublicacionForo publicacion)
+        public async Task<ActionResult<Resultado>> SetPublicacionForo([FromBody] PublicacionForo publicacionForo)
         {
             try
             {
                 var cadenaConexion = _config.GetConnectionString("AgroPetechConnection");
                 if (string.IsNullOrEmpty(cadenaConexion))
                     return BadRequest(new Resultado { Respuesta = "Error", Leyenda = "Cadena de conexión no configurada" });
-
-                XDocument xmlParam = Shared.DBXmlMethods.GetXml(publicacion);
+                XDocument xmlParam = Shared.DBXmlMethods.GetXml(publicacionForo);
                 DataSet dsResultado = await Shared.DBXmlMethods.EjecutaBase(
                     "SetPublicacionForo",
                     cadenaConexion,
-                    publicacion.Transaccion ?? "INSERTAR_POST",
+                    publicacionForo.Transaccion ?? "INSERTAR_POST",
                     xmlParam?.ToString() ?? "");
 
                 var resultado = new Resultado();
                 if (dsResultado.Tables.Count > 0 && dsResultado.Tables[0].Rows.Count > 0)
                 {
-                    resultado.Respuesta = dsResultado.Tables[0].Rows[0]["Respuesta"]?.ToString() ?? "Error";
-                    resultado.Leyenda = dsResultado.Tables[0].Rows[0]["Leyenda"]?.ToString() ?? "Sin mensaje";
+                    resultado.Respuesta = dsResultado.Tables[0].Rows[0]["respuesta"]?.ToString() ?? "Error";
+                    resultado.Leyenda = dsResultado.Tables[0].Rows[0]["leyenda"]?.ToString() ?? "Sin mensaje";
                 }
                 else
                 {
@@ -220,7 +223,15 @@ namespace AgroPetechBackend.Controllers
             }
         }
 
-
+        /* Lo que hace este método en el swagger:
+         * Endpoint simplificado para crear un post
+        {
+          "titulo": "¿Cómo implementar Guards en Angular?",
+          "contenido": "Necesito ayuda con guards...",
+          "urlImagen": "https://ejemplo.com/imagen.jpg",
+          "usuarioId": 5
+        }
+         */
         [HttpPost("CrearPost")]
         [ProducesResponseType(typeof(Resultado), 200)]
         [ProducesResponseType(typeof(Resultado), 400)]
@@ -243,7 +254,14 @@ namespace AgroPetechBackend.Controllers
             }
         }
 
-
+        /* Lo que hace este método en el swagger:
+         * Endpoint simplificado para crear una respuesta
+        {
+          "parentId": 15,
+          "contenido": "Puedes usar CanActivate...",
+          "usuarioId": 8
+        }
+         */
         [HttpPost("CrearRespuesta")]
         [ProducesResponseType(typeof(Resultado), 200)]
         [ProducesResponseType(typeof(Resultado), 400)]
