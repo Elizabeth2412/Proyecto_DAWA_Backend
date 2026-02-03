@@ -1,3 +1,5 @@
+USE AgroPetech;
+GO
 -- Tabla de Usuarios
 CREATE TABLE Usuario (
     id INT IDENTITY(1,1) PRIMARY KEY,
@@ -166,7 +168,7 @@ ADD CONSTRAINT FK_Publicaciones_UsuarioEliminacion
 FOREIGN KEY (usuarioEliminacionId) REFERENCES usuario(id);
 GO
 
--- Índices para optimizar consultas
+-- ï¿½ndices para optimizar consultas
 --   Hilos completos (root)
 CREATE NONCLUSTERED INDEX IX_Publicaciones_RootId
 ON PublicacionesForo(rootId)
@@ -174,7 +176,7 @@ INCLUDE (estado, fechaCreacion)
 WHERE estado = 1;
 GO
 
---   Respuestas a una publicación
+--   Respuestas a una publicaciï¿½n
 CREATE NONCLUSTERED INDEX IX_Publicaciones_ParentId
 ON PublicacionesForo(parentId)
 INCLUDE (estado, fechaCreacion)
@@ -187,7 +189,7 @@ ON PublicacionesForo(usuarioId, fechaCreacion DESC)
 WHERE estado = 1;
 GO
 
---   Listado principal del foro (posts raíz)
+--   Listado principal del foro (posts raï¿½z)
 CREATE NONCLUSTERED INDEX IX_Publicaciones_Fecha
 ON PublicacionesForo(fechaCreacion DESC)
 INCLUDE (titulo, usuarioId, parentId, rootId)
