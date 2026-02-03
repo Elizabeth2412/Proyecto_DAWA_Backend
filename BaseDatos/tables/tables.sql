@@ -127,91 +127,69 @@ CREATE TABLE Opcion (
 GO
 
 
--- Tabla de foros
+-- Tabla de publicacionesForos
 CREATE TABLE PublicacionesForo (
-    Id BIGINT IDENTITY(1,1) NOT NULL,
-
-    ParentId BIGINT NULL,
-    RootId BIGINT NULL,
-
-    Titulo NVARCHAR(200) NULL,
-    Contenido NVARCHAR(MAX) NOT NULL,
-    UrlImagen VARCHAR(500) NULL,
-
-    UsuarioId INT NOT NULL,
-
-    FechaCreacion DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    FechaModificacion DATETIME2 NULL,
-    UsuarioModificacionId INT NULL,
-    FechaEliminacion DATETIME2 NULL,
-    UsuarioEliminacionId INT NULL,
-    Estado BIT NOT NULL DEFAULT 1,
-
-    CONSTRAINT PK_PublicacionesForo 
-        PRIMARY KEY CLUSTERED (Id)
+    id BIGINT IDENTITY(1,1) NOT NULL,
+    parentId BIGINT NULL,
+    rootId BIGINT NULL,
+    titulo NVARCHAR(200) NULL,
+    contenido NVARCHAR(MAX) NOT NULL,
+    urlImagen VARCHAR(500) NULL,
+    usuarioId INT NOT NULL,
+    fechaCreacion DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    fechaModificacion DATETIME2 NULL,
+    usuarioModificacionId INT NULL,
+    fechaEliminacion DATETIME2 NULL,
+    usuarioEliminacionId INT NULL,
+    estado BIT NOT NULL DEFAULT 1,
+    CONSTRAINT PK_PublicacionesForo PRIMARY KEY CLUSTERED (id)
 );
 GO
 
 ALTER TABLE PublicacionesForo
 ADD CONSTRAINT FK_Publicaciones_Parent
-FOREIGN KEY (ParentId) REFERENCES PublicacionesForo(Id);
+FOREIGN KEY (parentId) REFERENCES PublicacionesForo(id);
 GO
 
 ALTER TABLE PublicacionesForo
 ADD CONSTRAINT FK_Publicaciones_Usuario
-FOREIGN KEY (UsuarioId) REFERENCES Usuario(Id);
+FOREIGN KEY (usuarioId) REFERENCES usuario(id);
 GO
 
 ALTER TABLE PublicacionesForo
 ADD CONSTRAINT FK_Publicaciones_UsuarioModificacion
-FOREIGN KEY (UsuarioModificacionId) REFERENCES Usuario(Id);
+FOREIGN KEY (usuarioModificacionId) REFERENCES usuario(id);
 GO
 
 ALTER TABLE PublicacionesForo
 ADD CONSTRAINT FK_Publicaciones_UsuarioEliminacion
-FOREIGN KEY (UsuarioEliminacionId) REFERENCES Usuario(Id);
+FOREIGN KEY (usuarioEliminacionId) REFERENCES usuario(id);
 GO
 
--- Crear indices para optimizar consultas
+-- Índices para optimizar consultas
+--   Hilos completos (root)
 CREATE NONCLUSTERED INDEX IX_Publicaciones_RootId
-ON PublicacionesForo(RootId)
-INCLUDE (Estado, FechaCreacion)
-WHERE Estado = 1;
+ON PublicacionesForo(rootId)
+INCLUDE (estado, fechaCreacion)
+WHERE estado = 1;
 GO
 
+--   Respuestas a una publicación
 CREATE NONCLUSTERED INDEX IX_Publicaciones_ParentId
-ON PublicacionesForo(ParentId)
-INCLUDE (Estado, FechaCreacion)
-WHERE Estado = 1;
+ON PublicacionesForo(parentId)
+INCLUDE (estado, fechaCreacion)
+WHERE estado = 1;
 GO
 
+--   Publicaciones por usuario (CORREGIDO)
 CREATE NONCLUSTERED INDEX IX_Publicaciones_UsuarioId
-ON PublicacionesForo(UsuarioId, Estado, FechaCreacion DESC);
+ON PublicacionesForo(usuarioId, fechaCreacion DESC)
+WHERE estado = 1;
 GO
 
+--   Listado principal del foro (posts raíz)
 CREATE NONCLUSTERED INDEX IX_Publicaciones_Fecha
-ON PublicacionesForo(FechaCreacion DESC)
-INCLUDE (Titulo, UsuarioId, ParentId, RootId)
-WHERE Estado = 1 AND ParentId IS NULL;
-GO
--- Crear indice de texto completo para busquedas en Titulo y Contenido
-IF NOT EXISTS (
-    SELECT 1 
-    FROM sys.fulltext_catalogs 
-    WHERE name = 'FTC_Publicaciones'
-)
-BEGIN
-    CREATE FULLTEXT CATALOG FTC_Publicaciones
-    WITH ACCENT_SENSITIVITY = OFF;
-END
-GO
-
-CREATE FULLTEXT INDEX ON PublicacionesForo
-(
-    Titulo LANGUAGE 'Spanish',
-    Contenido LANGUAGE 'Spanish'
-)
-KEY INDEX PK_PublicacionesForo
-ON FTC_Publicaciones
-WITH CHANGE_TRACKING AUTO;
+ON PublicacionesForo(fechaCreacion DESC)
+INCLUDE (titulo, usuarioId, parentId, rootId)
+WHERE estado = 1 AND parentId IS NULL;
 GO

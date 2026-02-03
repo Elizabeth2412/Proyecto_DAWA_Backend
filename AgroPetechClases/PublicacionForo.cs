@@ -4,7 +4,7 @@
     {
         public long? Id { get; set; }
         public long? ParentId { get; set; }
-        public long? RootId { get; set; }
+        public long? RootId { get; set; } 
         public string? Titulo { get; set; }
         public string? Contenido { get; set; }
         public string? UrlImagen { get; set; }
