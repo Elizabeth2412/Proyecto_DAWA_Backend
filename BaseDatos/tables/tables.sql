@@ -1,3 +1,5 @@
+USE AgroPetech;
+GO
 -- Tabla de Usuarios
 CREATE TABLE Usuario (
     id INT IDENTITY(1,1) PRIMARY KEY,
@@ -206,6 +208,7 @@ BEGIN
 END
 GO
 
+/*
 CREATE FULLTEXT INDEX ON PublicacionesForo
 (
     Titulo LANGUAGE 'Spanish',
@@ -215,3 +218,4 @@ KEY INDEX PK_PublicacionesForo
 ON FTC_Publicaciones
 WITH CHANGE_TRACKING AUTO;
 GO
+*/
