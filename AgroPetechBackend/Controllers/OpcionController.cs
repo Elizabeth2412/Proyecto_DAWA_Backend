@@ -128,20 +128,25 @@ namespace AgroPetechBackend.Controllers
 
                 if (dsResultado.Tables.Count > 1 && dsResultado.Tables[1].Rows.Count > 0)
                 {
-                    DataRow row = dsResultado.Tables[1].Rows[0];
+                    List<Opcion> opciones = new List<Opcion>();
 
-                    resultado.Data = new Opcion
+                    foreach (DataRow row in dsResultado.Tables[1].Rows)
                     {
-                        Id = Convert.ToInt32(row["id"]),
-                        PreguntaId = Convert.ToInt32(row["preguntaId"]),
-                        Texto = row["texto"]?.ToString(),
-                        EsCorrecta = Convert.ToBoolean(row["esCorrecta"]),
-                        Estado = row["estado"]?.ToString()
-                    };
+                        opciones.Add(new Opcion
+                        {
+                            Id = Convert.ToInt32(row["id"]),
+                            PreguntaId = Convert.ToInt32(row["preguntaId"]),
+                            Texto = row["texto"]?.ToString(),
+                            EsCorrecta = Convert.ToBoolean(row["esCorrecta"]),
+                            Estado = row["estado"]?.ToString()
+                        });
+                    }
+
+                    resultado.Data = opciones;
                 }
                 else
                 {
-                    resultado.Data = null;
+                    resultado.Data = new List<Opcion>();
                 }
 
                 return Ok(resultado);

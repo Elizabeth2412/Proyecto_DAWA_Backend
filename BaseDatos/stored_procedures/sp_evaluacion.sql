@@ -1,4 +1,10 @@
 ﻿USE AgroPetech;
+
+
+SELECT * FROM Evaluacion
+
+EXEC GetEvaluacion @iTransaccion = 'CONSULTAR_EVALUACION'
+
 GO
 CREATE OR ALTER PROCEDURE GetEvaluacion
     @iTransaccion VARCHAR(50),
@@ -13,6 +19,7 @@ BEGIN
     DECLARE @Result TABLE (
         id INT,
         cursoId INT,
+        cursoName VARCHAR(200),
         titulo VARCHAR(200),
         modulo VARCHAR(100),
         totalPreguntas INT,
@@ -29,15 +36,17 @@ BEGIN
             BEGIN
                 INSERT INTO @Result
                 SELECT 
-                    id, 
-                    cursoId, 
-                    titulo, 
-                    modulo, 
-                    totalPreguntas, 
-                    duracion, 
-                    fechaCreacion,
+                    eva.id, 
+                    eva.cursoId, 
+                    cur.descripcion as cursoName,
+                    eva.titulo, 
+                    eva.modulo, 
+                    eva.totalPreguntas, 
+                    eva.duracion, 
+                    eva.fechaCreacion,
                     estado
-                FROM Evaluacion;
+                FROM Evaluacion eva
+                LEFT JOIN Curso cur ON eva.cursoId = cur.id
 
                 SET @Leyenda = 'Consulta exitosa';
             END
@@ -77,17 +86,19 @@ BEGIN
             BEGIN
                 INSERT INTO @Result
                 SELECT 
-                    id, 
-                    cursoId, 
-                    titulo, 
-                    modulo, 
-                    totalPreguntas, 
-                    duracion, 
-                    fechaCreacion,
-                    estado
-                FROM Evaluacion
+                    eva.id, 
+                    eva.cursoId,
+                    cur.descripcion as cursoName,
+                    eva.titulo, 
+                    eva.modulo, 
+                    eva.totalPreguntas, 
+                    eva.duracion, 
+                    eva.fechaCreacion,
+                    eva.estado
+                FROM Evaluacion eva
+                LEFT JOIN Curso cur ON eva.cursoId = cur.id
                 WHERE cursoId = @cursoId;
-
+                
                 SET @Leyenda = 'Consulta por curso exitosa';
             END
         END
@@ -109,17 +120,19 @@ BEGIN
             BEGIN
                 INSERT INTO @Result
                 SELECT 
-                    id, 
-                    cursoId, 
-                    titulo, 
-                    modulo, 
-                    totalPreguntas, 
-                    duracion, 
-                    fechaCreacion,
+                    eva.id, 
+                    eva.cursoId, 
+                    cur.descripcion as cursoName,
+                    eva.titulo, 
+                    eva.modulo, 
+                    eva.totalPreguntas, 
+                    eva.duracion, 
+                    eva.fechaCreacion,
                     estado
-                FROM Evaluacion
-                WHERE   (@titulo IS NULL OR @titulo = '' OR titulo LIKE '%' + @titulo + '%')
-                        AND (@estado IS NULL OR @estado = '' OR estado = @estado)
+                FROM Evaluacion eva
+                LEFT JOIN Curso cur ON eva.cursoId = cur.id
+                WHERE   (@titulo IS NULL OR @titulo = '' OR eva.titulo LIKE '%' + @titulo + '%')
+                        AND (@estado IS NULL OR @estado = '' OR eva.estado = @estado)
 
                 SET @Leyenda = 'Búsqueda por nombre/estado exitosa';
             END
@@ -161,6 +174,7 @@ BEGIN
 
     DECLARE @Respuesta VARCHAR(10);
     DECLARE @Leyenda VARCHAR(200);
+    DECLARE @IdGenerado INT = NULL; 
 
     BEGIN TRY
         BEGIN TRANSACTION TRX_EVALUACION;
@@ -187,6 +201,7 @@ BEGIN
                 @iXML.value('(/Evaluacion/UsuarioId)[1]', 'INT')
             );
 
+            SET @IdGenerado = SCOPE_IDENTITY();
             SET @Respuesta = 'Ok';
             SET @Leyenda = 'Evaluación creada correctamente';
         END
@@ -229,6 +244,11 @@ BEGIN
 
         COMMIT TRANSACTION TRX_EVALUACION;
         SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
+
+        IF @IdGenerado IS NOT NULL
+        BEGIN
+            SELECT @IdGenerado AS Id;
+        END
 
     END TRY
     BEGIN CATCH
@@ -394,7 +414,7 @@ BEGIN
             UPDATE Pregunta
             SET texto = @iXML.value('(/Pregunta/Texto)[1]', 'VARCHAR(500)'),
                 fechaModificacion = GETDATE(),
-                usuarioModificacionId = @iXML.value('(/Pregunta/UsuarioId)[1]', 'INT')
+                usuarioModificacionId = NULLIF(@iXML.value('(/Pregunta/UsuarioId)[1]', 'INT'), 1)
             WHERE id = @iXML.value('(/Pregunta/Id)[1]', 'INT');
 
             SET @Respuesta = 'Ok';
