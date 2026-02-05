@@ -10,5 +10,6 @@ namespace AgroPetechBackend.DTOs
 
         public string? Descripcion { get; set; }
         public string? Usuario { get; set; }
+        public bool EliminarImagen { get; set; } = false;
     }
 }

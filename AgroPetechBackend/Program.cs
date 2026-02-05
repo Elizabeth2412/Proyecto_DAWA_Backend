@@ -1,8 +1,10 @@
-using Microsoft.OpenApi.Models;
+using AgroPetechBackend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using Microsoft.OpenApi.Models;
+using Minio;
 using Swashbuckle.AspNetCore.Filters;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
@@ -41,7 +43,6 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // Controllers
-builder.Services.AddControllers();
 builder.Services.AddSwaggerGen(options =>
 {
     options.OperationFilter<SecurityRequirementsOperationFilter>();
@@ -54,6 +55,20 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "Bearer"
     });
 });
+
+//Minio
+//Minio
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+
+    return new MinioClient()
+        .WithEndpoint(config["Minio:Endpoint"])
+        .WithCredentials(config["Minio:AccessKey"], config["Minio:SecretKey"])
+        .WithSSL(bool.Parse(config["Minio:UseSSL"] ?? "false"))
+        .Build();
+});
+builder.Services.AddScoped<MinioService>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -80,6 +95,8 @@ builder.Services.AddHttpClient("Backend", client =>
 {
     ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
 });
+
+builder.Services.AddControllers();
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -96,7 +113,6 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAngularApp");
 app.UseAuthorization();
-app.MapControllers();
 app.MapGet("/", () => Results.Json(new
 {
     status = "OK",
@@ -104,4 +120,6 @@ app.MapGet("/", () => Results.Json(new
     timestamp = DateTime.UtcNow
 }));
 
+
+app.MapControllers();
 app.Run();
