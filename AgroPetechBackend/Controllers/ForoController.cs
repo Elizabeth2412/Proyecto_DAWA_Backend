@@ -1,4 +1,6 @@
-﻿using AgroPetechClases;
+﻿using AgroPetechBackend.DTOs;
+using AgroPetechBackend.Services;
+using AgroPetechClases;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 using System.Xml.Linq;
@@ -11,11 +13,14 @@ namespace AgroPetechBackend.Controllers
     {
         private readonly IConfiguration _config;
         private readonly ILogger<ForoController> _logger;
+        private readonly MinioService _minioService;
 
-        public ForoController(IConfiguration config, ILogger<ForoController> logger)
+        public ForoController(IConfiguration config, ILogger<ForoController> logger, MinioService minioService)
         {
             _config = config;
             _logger = logger;
+            _minioService = minioService;
+
         }
 
         /* Lo que hace este método en el swagger:
@@ -181,17 +186,49 @@ namespace AgroPetechBackend.Controllers
         }
          */
         [HttpPost("SetPublicacionForo")]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(Resultado), 200)]
         [ProducesResponseType(typeof(Resultado), 400)]
         [ProducesResponseType(typeof(Resultado), 500)]
-        public async Task<ActionResult<Resultado>> SetPublicacionForo([FromBody] PublicacionForo publicacionForo)
+        private async Task<ActionResult<Resultado>> SetPublicacionForo(
+        [FromForm] PublicacionForo publicacionForo,
+        [FromForm] ArchivoFormRequest? archivo)
         {
             try
             {
                 var cadenaConexion = _config.GetConnectionString("AgroPetechConnection");
                 if (string.IsNullOrEmpty(cadenaConexion))
-                    return BadRequest(new Resultado { Respuesta = "Error", Leyenda = "Cadena de conexión no configurada" });
+                    return BadRequest(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "Cadena de conexión no configurada"
+                    });
+
+                // logica de imagenes con minio
+                bool esRespuesta = publicacionForo.ParentId != null;
+
+                if (esRespuesta && archivo?.Archivo != null)
+                {
+                    return BadRequest(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "Las respuestas no pueden tener imagen"
+                    });
+                }
+
+                if (!esRespuesta && archivo?.Archivo != null)
+                {
+                    publicacionForo.UrlImagen =
+                        await _minioService.SubirArchivoAsync(archivo.Archivo, "foros");
+                }
+                else
+                {
+                    publicacionForo.UrlImagen = null;
+                }
+
+                // Manejar logica set de foro
                 XDocument xmlParam = Shared.DBXmlMethods.GetXml(publicacionForo);
+
                 DataSet dsResultado = await Shared.DBXmlMethods.EjecutaBase(
                     "SetPublicacionForo",
                     cadenaConexion,
@@ -199,10 +236,13 @@ namespace AgroPetechBackend.Controllers
                     xmlParam?.ToString() ?? "");
 
                 var resultado = new Resultado();
+
                 if (dsResultado.Tables.Count > 0 && dsResultado.Tables[0].Rows.Count > 0)
                 {
-                    resultado.Respuesta = dsResultado.Tables[0].Rows[0]["respuesta"]?.ToString() ?? "Error";
-                    resultado.Leyenda = dsResultado.Tables[0].Rows[0]["leyenda"]?.ToString() ?? "Sin mensaje";
+                    resultado.Respuesta =
+                        dsResultado.Tables[0].Rows[0]["respuesta"]?.ToString() ?? "Error";
+                    resultado.Leyenda =
+                        dsResultado.Tables[0].Rows[0]["leyenda"]?.ToString() ?? "Sin mensaje";
                 }
                 else
                 {
@@ -233,15 +273,16 @@ namespace AgroPetechBackend.Controllers
         }
          */
         [HttpPost("CrearPost")]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(Resultado), 200)]
         [ProducesResponseType(typeof(Resultado), 400)]
         [ProducesResponseType(typeof(Resultado), 500)]
-        public async Task<ActionResult<Resultado>> CrearPost([FromBody] PublicacionForo publicacion)
+        public async Task<ActionResult<Resultado>> CrearPost([FromForm] PublicacionForo publicacion, [FromForm] ArchivoFormRequest? archivo)
         {
             try
             {
                 publicacion.Transaccion = "INSERTAR_POST";
-                return await SetPublicacionForo(publicacion);
+                return await SetPublicacionForo(publicacion, archivo);
             }
             catch (Exception ex)
             {
@@ -263,15 +304,16 @@ namespace AgroPetechBackend.Controllers
         }
          */
         [HttpPost("CrearRespuesta")]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(Resultado), 200)]
         [ProducesResponseType(typeof(Resultado), 400)]
         [ProducesResponseType(typeof(Resultado), 500)]
-        public async Task<ActionResult<Resultado>> CrearRespuesta([FromBody] PublicacionForo publicacion)
+        public async Task<ActionResult<Resultado>> CrearRespuesta([FromForm] PublicacionForo publicacion)
         {
             try
             {
                 publicacion.Transaccion = "INSERTAR_RESPUESTA";
-                return await SetPublicacionForo(publicacion);
+                return await SetPublicacionForo(publicacion, null);
             }
             catch (Exception ex)
             {
@@ -281,6 +323,180 @@ namespace AgroPetechBackend.Controllers
                     Respuesta = "Error",
                     Leyenda = $"Error interno: {ex.Message}"
                 });
+            }
+        }
+        //Actualizar un post existente con opción de cambiar imagen
+        [HttpPost("ActualizarPost")]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(Resultado), 200)]
+        [ProducesResponseType(typeof(Resultado), 400)]
+        [ProducesResponseType(typeof(Resultado), 500)]
+        public async Task<ActionResult<Resultado>> ActualizarPost(
+            [FromForm] PublicacionForo publicacion,
+            [FromForm] ArchivoFormRequest? archivo)
+        {
+            try
+            {
+                // Validaciones básicas
+                if (publicacion.Id <= 0)
+                    return BadRequest(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "ID de publicación inválido"
+                    });
+
+                if (publicacion.UsuarioModificacionId == null || publicacion.UsuarioModificacionId <= 0)
+                    return BadRequest(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "Usuario de modificación inválido"
+                    });
+
+                // CASO 1: Usuario quiere ELIMINAR la imagen
+                if (archivo?.EliminarImagen == true)
+                {
+                    await EliminarImagenMinioAsync(publicacion.UrlImagen);
+                    publicacion.UrlImagen = null;
+                }
+
+                // CASO 2: Usuario quiere REEMPLAZAR la imagen
+                else if (archivo?.Archivo != null && archivo.Archivo.Length > 0)
+                {
+                    // Validar imagen
+                    if (!EsImagenValida(archivo.Archivo, out string mensajeError))
+                        return BadRequest(new Resultado
+                        {
+                            Respuesta = "Error",
+                            Leyenda = mensajeError
+                        });
+
+                    // Subir nueva imagen
+                    var nuevaUrl = await _minioService.SubirArchivoAsync(archivo.Archivo, "foros");
+
+                    // Eliminar imagen anterior si existe
+                    await EliminarImagenMinioAsync(publicacion.UrlImagen);
+
+                    // Asignar nueva URL
+                    publicacion.UrlImagen = nuevaUrl;
+                }
+
+                // CASO 3: NO tocar imagen (no hacer nada)
+
+                publicacion.Transaccion = "ACTUALIZAR_PUBLICACION";
+                return await SetPublicacionForo(publicacion, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar post");
+                return StatusCode(500, new Resultado
+                {
+                    Respuesta = "Error",
+                    Leyenda = $"Error interno: {ex.Message}"
+                });
+            }
+        }
+
+        // Eliminar un post y sus respuestas (eliminación lógica)
+        [HttpPost("EliminarPost")]
+        [Consumes("application/json")]
+        [ProducesResponseType(typeof(Resultado), 200)]
+        [ProducesResponseType(typeof(Resultado), 400)]
+        [ProducesResponseType(typeof(Resultado), 500)]
+        public async Task<ActionResult<Resultado>> EliminarPost([FromBody] PublicacionForo publicacion)
+        {
+            try
+            {
+                // Validaciones
+                if (publicacion.Id <= 0)
+                    return BadRequest(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "ID de publicación inválido"
+                    });
+
+                if (publicacion.UsuarioEliminacionId == null || publicacion.UsuarioEliminacionId <= 0)
+                    return BadRequest(new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "Usuario de eliminación inválido"
+                    });
+
+                // Eliminar imagen física de MinIO
+                await EliminarImagenMinioAsync(publicacion.UrlImagen);
+                publicacion.UrlImagen = null;
+                publicacion.Transaccion = "ELIMINAR_PUBLICACION";
+                return await SetPublicacionForo(publicacion, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al eliminar post");
+                return StatusCode(500, new Resultado
+                {
+                    Respuesta = "Error",
+                    Leyenda = $"Error interno: {ex.Message}"
+                });
+            }
+        }
+
+        // Método auxiliar para extraer el objectName de una URL de MinIO
+        private string ExtraerObjectNameDeUrl(string url)
+        {
+            try
+            {
+                var uri = new Uri(url);
+                var bucket = _config["Minio:Bucket"];
+                return uri.AbsolutePath.Replace($"/{bucket}/", "");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Error al extraer objectName de URL: {ex.Message}");
+                return "";
+            }
+        }
+
+        // Método auxiliar para validar imagen
+        private bool EsImagenValida(IFormFile archivo, out string mensajeError)
+        {
+            mensajeError = "";
+
+            if (archivo == null || archivo.Length == 0)
+            {
+                mensajeError = "Archivo vacío";
+                return false;
+            }
+
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var extension = Path.GetExtension(archivo.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+            {
+                mensajeError = "Tipo de archivo no permitido. Use: jpg, jpeg, png, gif, webp";
+                return false;
+            }
+
+            return true;
+        }
+
+        // Método auxiliar para eliminar imagen de MinIO
+        private async Task<bool> EliminarImagenMinioAsync(string? url)
+        {
+            if (string.IsNullOrEmpty(url))
+                return false;
+
+            try
+            {
+                var objectName = ExtraerObjectNameDeUrl(url);
+                if (string.IsNullOrEmpty(objectName))
+                    return false;
+
+                await _minioService.EliminarArchivoAsync(objectName);
+                _logger.LogInformation($"Imagen eliminada de MinIO: {url}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"No se pudo eliminar imagen de MinIO: {ex.Message}");
+                return false;
             }
         }
     }
