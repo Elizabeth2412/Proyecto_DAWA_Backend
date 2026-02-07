@@ -51,8 +51,17 @@ BEGIN
                 edad
             FROM Usuario
             WHERE email = @emailT AND password = @passwordT;
-            
-            SET @Leyenda = 'Validaci�n Exitosa';
+
+            IF NOT EXISTS (SELECT 1 FROM @ResultTable)
+            BEGIN
+                SET @Respuesta = 'Error';
+                SET @Leyenda = 'Credenciales inválidas';
+            END
+            ELSE
+            BEGIN
+                SET @Respuesta = 'Ok';
+                SET @Leyenda = 'Validación Exitosa';
+            END
         END
 
         -- BUSCAR USUARIO POR EMAIL

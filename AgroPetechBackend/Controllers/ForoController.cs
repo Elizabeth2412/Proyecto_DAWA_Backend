@@ -23,31 +23,6 @@ namespace AgroPetechBackend.Controllers
 
         }
 
-        /* Lo que hace este método en el swagger:
-         * 1: Listar todos los posts
-        {
-          "transaccion": "CONSULTAR_POSTS"
-        }
-         * 2: Consultar post completo con respuestas
-        {
-          "id": 1,
-          "transaccion": "CONSULTAR_POST_COMPLETO"
-        }
-         * 3: Consultar posts de un usuario
-        {
-          "usuarioId": 5,
-          "transaccion": "CONSULTAR_POSTS_USUARIO"
-        }
-         * 4: Buscar posts
-        {
-          "textoBusqueda": "angular",
-          "transaccion": "BUSCAR_POSTS"
-        }
-         * 5: Posts recientes
-        {
-          "transaccion": "CONSULTAR_POSTS_RECIENTES"
-        }
-         */
         [HttpPost("GetPublicacionForo")]
         [ProducesResponseType(typeof(Resultado), 200)]
         [ProducesResponseType(typeof(Resultado), 400)]
