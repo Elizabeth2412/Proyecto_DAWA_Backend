@@ -7,13 +7,16 @@ using Swashbuckle.AspNetCore.Filters;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls("http://0.0.0.0:80");
+
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+            policy.WithOrigins("http://localhost:4200", "https://localhost:4200",
+                                "http://localhost:4200/","https://localhost:4200/")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials()
@@ -56,7 +59,6 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-//Minio
 //Minio
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
@@ -109,7 +111,7 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = "swagger";
     });
 }
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseCors("AllowAngularApp");
 app.UseAuthorization();

@@ -1,7 +1,7 @@
 ﻿services:
   minio:
     image: minio/minio
-    container_name: minio
+    container_name: agropetech-minio
     restart: unless-stopped
     ports:
       - "9000:9000"
@@ -12,9 +12,12 @@
     volumes:
       - C:/minio-data:/data
     command: server /data --console-address ":9001"
+    networks:
+      - agropetech-network
     
   minio-init:
     image: minio/mc
+    container_name: agropetech-minio-init
     depends_on:
       - minio
     entrypoint: >
@@ -25,3 +28,60 @@
       mc anonymous set download local/agropetech-storage;
       exit 0;
       "
+    networks:
+      - agropetech-network
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: agropetech-sqlserver
+    restart: unless-stopped
+    environment:
+      SA_PASSWORD: "Password123!"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+    ports:
+      - "14333:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    networks:
+      - agropetech-network
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "Password123!", "-Q", "SELECT 1", "-C"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
+  api:
+    image: agropetech-api
+    container_name: agropetech-api
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "5000:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:80"
+      ConnectionStrings__AgroPetechConnection: "Server=sqlserver;Database=AgroPetech;User Id=sa;Password=Password123!;TrustServerCertificate=True"
+      Minio__Endpoint: "minio:9000"
+      Minio__AccessKey: "admin"
+      Minio__SecretKey: "admin123"
+      Minio__BucketName: "agropetech-storage"
+      Minio__UseSSL: "false"
+      Jwt__Key: "SuperSecretKeyForJWT2024AgroPetechApplicationWithMoreThan64Characters!!!"
+      ApiUrl: "http://localhost:5000"
+    networks:
+      - agropetech-network
+
+volumes:
+  sql_data:
+    name: agropetech-sql-data
+
+networks:
+  agropetech-network:
+    name: agropetech
+    driver: bridge

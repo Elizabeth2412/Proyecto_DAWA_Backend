@@ -198,59 +198,54 @@ namespace AgroPetechBackend.Controllers
         {
             try
             {
-                var cadenaConexion = _config.GetConnectionString("AgroPetechConnection");
-                if (string.IsNullOrEmpty(cadenaConexion))
-                    return BadRequest(new Resultado { Respuesta = "Error", Leyenda = "Cadena de conexión no configurada" });
-
                 // Establecer la transacción para validación
                 usuario.Transaccion = "VALIDAR_USUARIO";
 
-                XDocument xmlParam = Shared.DBXmlMethods.GetXml(usuario);
-                DataSet dsResultado = await Shared.DBXmlMethods.EjecutaBase(
-                    "GetUsuario",
-                    cadenaConexion,
-                    usuario.Transaccion,
-                    xmlParam?.ToString() ?? "");
+                var actionResult = await GetUsuario(usuario);
+                var okResult = actionResult.Result as OkObjectResult;
 
-                var resultado = new Resultado();
-
-                if (dsResultado.Tables.Count > 1 && dsResultado.Tables[1].Rows.Count > 0)
+                if (okResult?.Value is Resultado resultadoUsuario)
                 {
-                    // Usuario válido, crear token
-                    DataRow userRow = dsResultado.Tables[1].Rows[0];
-
-                    var usuarioAutenticado = new Usuario
+                    if (resultadoUsuario.Respuesta == "Ok" &&
+                        resultadoUsuario.Data is List<Usuario> usuarios &&
+                        usuarios.Count > 0)
                     {
-                        Id = Convert.ToInt32(userRow["id"]),
-                        Email = userRow["email"]?.ToString(),
-                        Tipo = userRow["tipo"]?.ToString(),
-                        Nombre = userRow["nombre"]?.ToString(),
-                        Apellido = userRow["apellido"]?.ToString()
-                    };
+                        // Usuario válido - tomar el primer usuario de la lista
+                        var usuarioAutenticado = usuarios[0];
 
-                    if (userRow["edad"] != DBNull.Value && userRow["edad"] != null)
-                    {
-                        usuarioAutenticado.Edad = Convert.ToInt32(userRow["edad"]);
+                        // Crear token JWT
+                        string token = CrearToken(usuarioAutenticado);
+
+                        var resultado = new Resultado
+                        {
+                            Respuesta = "Ok",
+                            Leyenda = "Autenticación exitosa",
+                            Data = new
+                            {
+                                Token = token,
+                                Usuario = usuarioAutenticado
+                            }
+                        };
+
+                        return Ok(resultado);
                     }
-
-                    // Crear token JWT
-                    string token = CrearToken(usuarioAutenticado);
-
-                    resultado.Respuesta = "Ok";
-                    resultado.Leyenda = "Autenticación exitosa";
-                    resultado.Data = new
+                    else
                     {
-                        Token = token,
-                        Usuario = usuarioAutenticado
-                    };
+                        return Ok(new Resultado
+                        {
+                            Respuesta = "Error",
+                            Leyenda = "Credenciales inválidas"
+                        });
+                    }
                 }
                 else
                 {
-                    resultado.Respuesta = "Error";
-                    resultado.Leyenda = "Credenciales inválidas";
+                    return StatusCode(500, new Resultado
+                    {
+                        Respuesta = "Error",
+                        Leyenda = "Error al procesar la respuesta"
+                    });
                 }
-
-                return Ok(resultado);
             }
             catch (Exception ex)
             {
@@ -382,12 +377,13 @@ namespace AgroPetechBackend.Controllers
         new Claim(ClaimTypes.Role, usuario.Tipo ?? "estudiante"),
         new Claim("NombreCompleto", $"{usuario.Nombre} {usuario.Apellido}".Trim())
     };
-
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_config["Jwt:Key"] ??
-                _config["AppSettings:Token"] ??
-                "fallback_key_development"));
-
+            string secretKey = _config["Jwt:Key"] ?? _config["AppSettings:Token"] ?? "fallback_key_development";
+            if (string.IsNullOrEmpty(secretKey) || Encoding.UTF8.GetByteCount(secretKey) < 64)
+            {
+                // Lanzamos una excepción genérica de configuración, SIN mostrar la clave real
+                throw new InvalidOperationException("La configuración JWT es inválida. La clave 'Jwt:Key' debe tener al menos 64 caracteres para soportar HMAC-SHA512.");
+            }
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
 
             var tokenDescriptor = new SecurityTokenDescriptor
