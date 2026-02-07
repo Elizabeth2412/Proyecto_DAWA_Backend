@@ -4,6 +4,7 @@
     {
         public int? Id { get; set; }
         public int? Cursoid { get; set; }
+        public string? CursoName { get; set; }
         public string? Titulo { get; set; }
         public string? Modulo { get; set; }
         public int? TotalPreguntas { get; set; }

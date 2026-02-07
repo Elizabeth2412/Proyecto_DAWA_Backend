@@ -60,6 +60,7 @@ namespace AgroPetechBackend.Controllers
                             {
                                 Id = Convert.ToInt32(row["id"]),
                                 Cursoid = row["cursoId"] == DBNull.Value? null: Convert.ToInt32(row["cursoId"]),
+                                CursoName = row["cursoName"]?.ToString(),
                                 Titulo = row["titulo"]?.ToString(),
                                 Modulo = row["modulo"]?.ToString(),
                                 TotalPreguntas = Convert.ToInt32(row["totalPreguntas"]),
@@ -147,6 +148,7 @@ namespace AgroPetechBackend.Controllers
                             Cursoid = row["cursoId"] == DBNull.Value
                                 ? null
                                 : Convert.ToInt32(row["cursoId"]),
+                            CursoName = row["cursoName"]?.ToString(),
                             Titulo = row["titulo"]?.ToString(),
                             Modulo = row["modulo"]?.ToString(),
                             TotalPreguntas = Convert.ToInt32(row["totalPreguntas"]),

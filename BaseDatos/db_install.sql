@@ -65,6 +65,24 @@ GO
 :r $(BASE_PATH)stored_procedures\sp_foros.sql
 GO
 
+
+PRINT 'Creando stored procedures de evaluaciones...';
+GO
+:r $(BASE_PATH)stored_procedures\sp_evaluacion.sql
+GO
+
+
+PRINT 'Creando stored procedures de cursos...';
+GO
+:r $(BASE_PATH)stored_procedures\sp_cursos.sql
+GO
+
+PRINT 'Creando stored procedures de cursos...';
+GO
+:r $(BASE_PATH)stored_procedures\sp_cursoarchivo.sql
+GO
+
+
 -- ============================================
 -- DATA DEMO (Omitir si se desea)
 -- ============================================
