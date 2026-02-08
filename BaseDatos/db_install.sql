@@ -20,7 +20,7 @@ GO
 --		:setvar BASE_PATH "C:\PROYECTOS\AgropeTech\Proyecto_DAWA_Backend\BaseDatos\"
 --   → Importante: No olvidar el "\" al final
 -- =====================================================
-:setvar BASE_PATH "C:\PROYECTOS\AgropeTech\Proyecto_DAWA_Backend\BaseDatos\"
+:setvar BASE_PATH ""
 
 USE master;
 GO

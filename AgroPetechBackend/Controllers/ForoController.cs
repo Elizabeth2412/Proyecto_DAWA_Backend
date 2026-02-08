@@ -160,14 +160,9 @@ namespace AgroPetechBackend.Controllers
           "transaccion": "ELIMINAR_PUBLICACION"
         }
          */
-        [HttpPost("SetPublicacionForo")]
-        [Consumes("multipart/form-data")]
-        [ProducesResponseType(typeof(Resultado), 200)]
-        [ProducesResponseType(typeof(Resultado), 400)]
-        [ProducesResponseType(typeof(Resultado), 500)]
-        private async Task<ActionResult<Resultado>> SetPublicacionForo(
-        [FromForm] PublicacionForo publicacionForo,
-        [FromForm] ArchivoFormRequest? archivo)
+        // [HttpPost("SetPublicacionForo")] Como se privatizo el metodo, este endpoint ya no es accesible directamente.
+        // Solo se puede usar a través de los endpoints específicos como CrearPost, CrearRespuesta, ActualizarPost y EliminarPost.
+        private async Task<ActionResult<Resultado>> SetPublicacionForo(PublicacionForo publicacionForo)
         {
             try
             {
@@ -179,29 +174,7 @@ namespace AgroPetechBackend.Controllers
                         Leyenda = "Cadena de conexión no configurada"
                     });
 
-                // logica de imagenes con minio
-                bool esRespuesta = publicacionForo.ParentId != null;
-
-                if (esRespuesta && archivo?.Archivo != null)
-                {
-                    return BadRequest(new Resultado
-                    {
-                        Respuesta = "Error",
-                        Leyenda = "Las respuestas no pueden tener imagen"
-                    });
-                }
-
-                if (!esRespuesta && archivo?.Archivo != null)
-                {
-                    publicacionForo.UrlImagen =
-                        await _minioService.SubirArchivoAsync(archivo.Archivo, "foros");
-                }
-                else
-                {
-                    publicacionForo.UrlImagen = null;
-                }
-
-                // Manejar logica set de foro
+                // Obtener el XML a partir del objeto PublicacionForo
                 XDocument xmlParam = Shared.DBXmlMethods.GetXml(publicacionForo);
 
                 DataSet dsResultado = await Shared.DBXmlMethods.EjecutaBase(
@@ -214,10 +187,8 @@ namespace AgroPetechBackend.Controllers
 
                 if (dsResultado.Tables.Count > 0 && dsResultado.Tables[0].Rows.Count > 0)
                 {
-                    resultado.Respuesta =
-                        dsResultado.Tables[0].Rows[0]["respuesta"]?.ToString() ?? "Error";
-                    resultado.Leyenda =
-                        dsResultado.Tables[0].Rows[0]["leyenda"]?.ToString() ?? "Sin mensaje";
+                    resultado.Respuesta = dsResultado.Tables[0].Rows[0]["respuesta"]?.ToString() ?? "Error";
+                    resultado.Leyenda = dsResultado.Tables[0].Rows[0]["leyenda"]?.ToString() ?? "Sin mensaje";
                 }
                 else
                 {
@@ -257,7 +228,8 @@ namespace AgroPetechBackend.Controllers
             try
             {
                 publicacion.Transaccion = "INSERTAR_POST";
-                return await SetPublicacionForo(publicacion, archivo);
+                publicacion.UrlImagen = await subirImagen(archivo);
+                return await SetPublicacionForo(publicacion);
             }
             catch (Exception ex)
             {
@@ -288,7 +260,8 @@ namespace AgroPetechBackend.Controllers
             try
             {
                 publicacion.Transaccion = "INSERTAR_RESPUESTA";
-                return await SetPublicacionForo(publicacion, null);
+                publicacion.UrlImagen = null; // Las respuestas no pueden tener imagen
+                return await SetPublicacionForo(publicacion);
             }
             catch (Exception ex)
             {
@@ -300,6 +273,7 @@ namespace AgroPetechBackend.Controllers
                 });
             }
         }
+
         //Actualizar un post existente con opción de cambiar imagen
         [HttpPost("ActualizarPost")]
         [Consumes("multipart/form-data")]
@@ -330,26 +304,17 @@ namespace AgroPetechBackend.Controllers
                 // CASO 1: Usuario quiere ELIMINAR la imagen
                 if (archivo?.EliminarImagen == true)
                 {
-                    await EliminarImagenMinioAsync(publicacion.UrlImagen);
+                    await EliminarImagenGuardada(publicacion.UrlImagen);
                     publicacion.UrlImagen = null;
                 }
 
                 // CASO 2: Usuario quiere REEMPLAZAR la imagen
                 else if (archivo?.Archivo != null && archivo.Archivo.Length > 0)
                 {
-                    // Validar imagen
-                    if (!EsImagenValida(archivo.Archivo, out string mensajeError))
-                        return BadRequest(new Resultado
-                        {
-                            Respuesta = "Error",
-                            Leyenda = mensajeError
-                        });
-
-                    // Subir nueva imagen
-                    var nuevaUrl = await _minioService.SubirArchivoAsync(archivo.Archivo, "foros");
+                    string? nuevaUrl = await subirImagen(archivo);
 
                     // Eliminar imagen anterior si existe
-                    await EliminarImagenMinioAsync(publicacion.UrlImagen);
+                    await EliminarImagenGuardada(publicacion.UrlImagen);
 
                     // Asignar nueva URL
                     publicacion.UrlImagen = nuevaUrl;
@@ -358,7 +323,7 @@ namespace AgroPetechBackend.Controllers
                 // CASO 3: NO tocar imagen (no hacer nada)
 
                 publicacion.Transaccion = "ACTUALIZAR_PUBLICACION";
-                return await SetPublicacionForo(publicacion, null);
+                return await SetPublicacionForo(publicacion);
             }
             catch (Exception ex)
             {
@@ -397,10 +362,10 @@ namespace AgroPetechBackend.Controllers
                     });
 
                 // Eliminar imagen física de MinIO
-                await EliminarImagenMinioAsync(publicacion.UrlImagen);
+                await EliminarImagenGuardada(publicacion.UrlImagen);
                 publicacion.UrlImagen = null;
                 publicacion.Transaccion = "ELIMINAR_PUBLICACION";
-                return await SetPublicacionForo(publicacion, null);
+                return await SetPublicacionForo(publicacion);
             }
             catch (Exception ex)
             {
@@ -413,7 +378,7 @@ namespace AgroPetechBackend.Controllers
             }
         }
 
-        // Método auxiliar para extraer el objectName de una URL de MinIO
+        // Método auxiliar para extraer el objectName de una URL de Minio
         private string ExtraerObjectNameDeUrl(string url)
         {
             try
@@ -452,8 +417,29 @@ namespace AgroPetechBackend.Controllers
             return true;
         }
 
+        // Método auxiliar para subir imagen de MinIO
+        private async Task<string?> subirImagen(ArchivoFormRequest? archivo)
+        {
+            var imagen = archivo?.Archivo;
+            string mensajeError = "";
+            if (imagen == null || imagen.Length == 0) return null;
+
+            // Verificar que el archivo es una imagen válida
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var extension = Path.GetExtension(imagen.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+            {
+                mensajeError = "Tipo de archivo no permitido. Use: jpg, jpeg, png, gif, webp";
+                return null;
+            }
+
+            var urlGenerada = await _minioService.SubirArchivoAsync(archivo.Archivo, "foros");
+            return urlGenerada;
+        }
+
         // Método auxiliar para eliminar imagen de MinIO
-        private async Task<bool> EliminarImagenMinioAsync(string? url)
+        private async Task<bool> EliminarImagenGuardada(string? url)
         {
             if (string.IsNullOrEmpty(url))
                 return false;
