@@ -3,7 +3,7 @@
     public class Evaluacion
     {
         public int? Id { get; set; }
-        public int? Cursoid { get; set; }
+        public int? CursoId { get; set; }
         public string? CursoName { get; set; }
         public string? Titulo { get; set; }
         public string? Modulo { get; set; }

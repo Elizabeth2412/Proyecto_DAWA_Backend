@@ -256,17 +256,25 @@ namespace AgroPetechBackend.Controllers
                     Leyenda = dsResultado.Tables[0].Rows[0]["Leyenda"]?.ToString()
                 };
 
-                if (resultado.Respuesta == "Ok" && dsResultado.Tables.Count > 1 && dsResultado.Tables[1].Rows.Count > 0)
+                if (resultado.Respuesta == "Ok" && dsResultado.Tables[0].Rows.Count > 0)
                 {
-                    int idGenerado = Convert.ToInt32(dsResultado.Tables[1].Rows[0]["Id"]);
-
-                    resultado.Data = new Pregunta
+                    if (dsResultado.Tables[0].Columns.Contains("PreguntaId"))
                     {
-                        Id = idGenerado,
-                        EvaluacionId = pregunta.EvaluacionId,
-                        Texto = pregunta.Texto,
-                        Estado = "Activa"
-                    };
+                        var preguntaIdValue = dsResultado.Tables[0].Rows[0]["PreguntaId"];
+
+                        if (preguntaIdValue != null && preguntaIdValue != DBNull.Value)
+                        {
+                            int idGenerado = Convert.ToInt32(preguntaIdValue);
+
+                            resultado.Data = new Pregunta
+                            {
+                                Id = idGenerado,
+                                EvaluacionId = pregunta.EvaluacionId,
+                                Texto = pregunta.Texto,
+                                Estado = "Activa"
+                            };
+                        }
+                    }
                 }
 
                 return Ok(resultado);
