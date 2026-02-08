@@ -1,10 +1,5 @@
 ﻿USE AgroPetech;
 
-
-SELECT * FROM Evaluacion
-
-EXEC GetEvaluacion @iTransaccion = 'CONSULTAR_EVALUACION'
-
 GO
 CREATE OR ALTER PROCEDURE GetEvaluacion
     @iTransaccion VARCHAR(50),
@@ -625,12 +620,3 @@ BEGIN
     END CATCH
 END;
 GO
-EXEC GetEvaluacion @iTransaccion = 'CONSULTAR_EVALUACION'
-GO
-SELECT * FROM Evaluacion
-
----------------------------------
-   -- <<GET EVALUACION>> --
----------------------------------
-
-EXEC GetEvaluacion @iTransaccion = 'BUSCAR_EVALUACION'

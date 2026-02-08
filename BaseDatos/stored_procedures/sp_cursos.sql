@@ -160,12 +160,3 @@ BEGIN
     END CATCH
 END;
 GO
-    INSERT INTO Curso (titulo, descripcion, nivel, duracion, instructor)
-    VALUES 
-    ('Introducción a la agricultura', 'Curso básico para principiantes', 'Principiante', 10, 'leslie@gmail.com');
-    GO 
-    SELECT * FROM Curso;
-    SELECT * FROM Archivo;
-    
-    SELECT * FROM CursoArchivo;
-    SELECT * FROM Usuario;
