@@ -1,7 +1,7 @@
 ﻿USE AgroPetech;
 
 GO
-CREATE OR ALTER PROCEDURE GetEvaluacion
+CREATE OR ALTER PROCEDURE [dbo].[GetEvaluacion]
     @iTransaccion VARCHAR(50),
     @iXML XML = NULL
 AS
@@ -33,7 +33,7 @@ BEGIN
                 SELECT 
                     eva.id, 
                     eva.cursoId, 
-                    cur.descripcion as cursoName,
+                    cur.titulo as cursoName,
                     eva.titulo, 
                     eva.modulo, 
                     eva.totalPreguntas, 
@@ -83,7 +83,7 @@ BEGIN
                 SELECT 
                     eva.id, 
                     eva.cursoId,
-                    cur.descripcion as cursoName,
+                    cur.titulo as cursoName,
                     eva.titulo, 
                     eva.modulo, 
                     eva.totalPreguntas, 
@@ -117,7 +117,7 @@ BEGIN
                 SELECT 
                     eva.id, 
                     eva.cursoId, 
-                    cur.descripcion as cursoName,
+                    cur.titulo as cursoName,
                     eva.titulo, 
                     eva.modulo, 
                     eva.totalPreguntas, 
@@ -133,10 +133,74 @@ BEGIN
             END
         END
 
+        -- CONSULTA DE EVALUACION CON PREGUNTAS
+        ELSE IF (@iTransaccion = 'EVALUACION_CON_PREGUNTAS')
+        BEGIN
+            DECLARE @evaluacionId INT = ISNULL(@iXML.value('(/Evaluacion/Id)[1]', 'INT'), 0);
+
+            IF @evaluacionId <= 0
+            BEGIN
+                SET @Respuesta = 'Error';
+                SET @Leyenda = 'El identificador de la evaluación no es válido';
+            END
+            ELSE IF NOT EXISTS (SELECT 1 FROM Evaluacion WHERE id = @evaluacionId)
+            BEGIN
+                SET @Respuesta = 'Error';
+                SET @Leyenda = 'No existe una evaluación con el identificador proporcionado';
+            END
+            ELSE
+            BEGIN
+                INSERT INTO @Result
+                SELECT 
+                    eva.id, 
+                    eva.cursoId,
+                    cur.titulo as cursoName,
+                    eva.titulo, 
+                    eva.modulo, 
+                    eva.totalPreguntas, 
+                    eva.duracion, 
+                    eva.fechaCreacion,
+                    eva.estado
+                FROM Evaluacion eva
+                LEFT JOIN Curso cur ON eva.cursoId = cur.id
+                WHERE eva.id = @evaluacionId;
+
+                SET @Leyenda = 'Evaluación con sus preguntas obtenida exitosamente';
+            END
+        END
+
         ELSE
         BEGIN
             SET @Respuesta = 'Error';
             SET @Leyenda = 'Transacción no válida';
+        END
+
+        SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
+        SELECT * FROM @Result;
+
+        IF (@iTransaccion = 'EVALUACION_CON_PREGUNTAS' AND @Respuesta = 'Ok')
+        BEGIN
+            DECLARE @evalId INT = ISNULL(@iXML.value('(/Evaluacion/Id)[1]', 'INT'), 0);
+
+            SELECT 
+                p.id,
+                p.evaluacionId,
+                p.texto,
+                p.estado,
+                (
+                    SELECT 
+                        o.id AS opcionId,
+                        o.texto,
+                        o.esCorrecta
+                    FROM Opcion o
+                    WHERE o.preguntaId = p.id
+                    ORDER BY o.id
+                    FOR JSON PATH
+                ) AS opciones
+            FROM Pregunta p
+            WHERE p.evaluacionId = @evalId
+                AND p.estado = 'Activa'
+            ORDER BY p.id;
         END
 
         SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
@@ -370,7 +434,7 @@ GO
 ---------------------------------
 
 GO
-CREATE OR ALTER PROCEDURE SetPregunta
+CREATE OR ALTER PROCEDURE [dbo].[SetPregunta]
     @iTransaccion VARCHAR(50),
     @iXML XML = NULL
 AS
@@ -379,6 +443,7 @@ BEGIN
 
     DECLARE @Respuesta VARCHAR(10);
     DECLARE @Leyenda VARCHAR(200);
+    DECLARE @PreguntaId INT = NULL;
 
     BEGIN TRY
         BEGIN TRANSACTION TRX_PREGUNTA;
@@ -398,6 +463,8 @@ BEGIN
                 'Activa',
                 @iXML.value('(/Pregunta/UsuarioId)[1]', 'INT')
             );
+
+            SET @PreguntaId = SCOPE_IDENTITY();
 
             SET @Respuesta = 'Ok';
             SET @Leyenda = 'Pregunta creada correctamente';
@@ -437,7 +504,7 @@ BEGIN
         END
 
         COMMIT TRANSACTION TRX_PREGUNTA;
-        SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda;
+        SELECT @Respuesta AS Respuesta, @Leyenda AS Leyenda, @PreguntaId AS PreguntaId;
 
     END TRY
     BEGIN CATCH
